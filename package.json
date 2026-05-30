@@ -1,0 +1,12 @@
+{
+  "name": "tic-tac-toe-server",
+  "version": "1.0.0",
+  "description": "Configurable Tic-Tac-Toe game with a zero-dependency Node backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

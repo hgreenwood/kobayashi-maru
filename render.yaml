@@ -1,0 +1,18 @@
+# Render Blueprint — deploy by pushing this repo and choosing "New > Blueprint".
+# NOTE: persistent disks require a paid instance type on Render. On the free
+# plan the service still runs perfectly, but config/scores reset on each
+# redeploy/restart. For free *persistent* storage, use Railway (see DEPLOY.md).
+services:
+  - type: web
+    name: kobayashi-maru
+    runtime: node
+    plan: starter            # change to "free" for a non-persistent free instance
+    buildCommand: ""         # zero dependencies — nothing to build
+    startCommand: node server.js
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

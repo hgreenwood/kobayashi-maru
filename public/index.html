@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LCARS · Tactical Grid — Kobayashi Maru</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ───────────────────────── LCARS palette (authentic Okuda colors) ───────────────────────── */
+  :root {
+    --lcars-orange:   #ff9900;  /* golden-orange */
+    --lcars-gold:     #ffcc66;  /* golden-tanoi  */
+    --lcars-sunflower:#ffcc99;
+    --lcars-butter:   #ff9966;
+    --lcars-violet:   #cc99ff;  /* african-violet */
+    --lcars-lilac:    #cc55ff;
+    --lcars-blue:     #5566ff;
+    --lcars-sky:      #aaaaff;
+    --lcars-ice:      #99ccff;
+    --lcars-red:      #cf4f4f;
+    --lcars-mars:     #ff2200;
+    --lcars-tomato:   #ff5555;
+    --lcars-bg:       #000000;
+    --lcars-panel:    #11141c;
+
+    --player:  #ffcc66;   /* Starfleet */
+    --cpu:     #66cc66;   /* enemy faction (overridden per opponent) */
+    --accent:  #ff9900;
+    --grid:    #5566ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: "Antonio", "Oswald", "Arial Narrow", sans-serif;
+    background: var(--lcars-bg);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px;
+    overflow-x: hidden;
+  }
+
+  /* ───────────────────────── Frame / LCARS shell ───────────────────────── */
+  .frame {
+    width: 100%;
+    max-width: 760px;
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "topbar topbar"
+      "sidebar main"
+      "botbar botbar";
+    gap: 10px;
+  }
+
+  /* Top elbow bar */
+  .topbar {
+    grid-area: topbar;
+    display: grid;
+    grid-template-columns: 132px 1fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+  .elbow-tl {
+    height: 70px;
+    background: var(--lcars-orange);
+    border-radius: 36px 0 0 0;
+    position: relative;
+  }
+  /* the inner notch that forms the classic LCARS elbow */
+  .elbow-tl::after {
+    content: "";
+    position: absolute; right: 0; bottom: 0;
+    width: 60%; height: 28px;
+    background: var(--lcars-bg);
+    border-radius: 0 0 0 18px;
+  }
+  .topbar-pill {
+    height: 28px;
+    align-self: end;
+    background: var(--lcars-gold);
+    border-radius: 0 14px 14px 0;
+    display: flex; align-items: center; padding: 0 14px;
+    color: #000; font-weight: 700; font-size: 0.8rem; letter-spacing: 2px;
+    overflow: hidden; white-space: nowrap;
+  }
+  .topbar-tag {
+    height: 28px; align-self: end;
+    background: var(--lcars-violet);
+    border-radius: 14px;
+    display: flex; align-items: center; padding: 0 16px;
+    color: #000; font-weight: 700; font-size: 0.8rem; letter-spacing: 2px;
+  }
+
+  /* Left sidebar with stacked LCARS buttons */
+  .sidebar {
+    grid-area: sidebar;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .side-block {
+    border-radius: 0 0 0 0;
+    color: #000; font-weight: 700; font-size: 0.72rem;
+    padding: 10px 12px; line-height: 1.1;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    min-height: 46px; text-align: right;
+    cursor: default;
+  }
+  .side-block.tall { min-height: 80px; }
+  .side-block .big { font-size: 1.1rem; letter-spacing: 1px; }
+  .side-block:nth-child(1) { background: var(--lcars-gold); }
+  .side-block:nth-child(2) { background: var(--lcars-violet); }
+  .side-block:nth-child(3) { background: var(--lcars-butter); }
+  .side-block:nth-child(4) { background: var(--lcars-sky); }
+  .side-block:nth-child(5) { background: var(--lcars-lilac); }
+  .side-fill {
+    flex: 1; min-height: 30px;
+    background: var(--lcars-orange);
+    border-radius: 0 0 0 22px;
+  }
+  .side-btn {
+    border: none; cursor: pointer; text-align: right;
+    font-family: inherit; text-transform: uppercase; letter-spacing: 1px;
+    transition: filter .12s, transform .08s;
+  }
+  .side-btn:hover { filter: brightness(1.18); }
+  .side-btn:active { transform: scale(0.97); }
+
+  /* Main panel */
+  .main {
+    grid-area: main;
+    background: var(--lcars-panel);
+    border-radius: 0 18px 18px 0;
+    border-left: 3px solid var(--lcars-orange);
+    padding: 16px 18px 20px;
+    display: flex; flex-direction: column;
+  }
+
+  .titleline { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+  .titleline h1 { font-size: 1.5rem; font-weight: 700; color: var(--lcars-gold); letter-spacing: 3px; }
+  .titleline .sub { font-size: 0.72rem; color: var(--lcars-sky); letter-spacing: 2px; }
+
+  .readout {
+    display: flex; gap: 8px; margin: 12px 0 6px; flex-wrap: wrap;
+  }
+  .chip {
+    background: #000; border: 1px solid var(--lcars-blue);
+    color: var(--lcars-ice); font-size: 0.7rem; letter-spacing: 1px;
+    padding: 5px 10px; border-radius: 10px;
+  }
+  .chip b { color: var(--lcars-gold); }
+
+  /* Status banner */
+  .status {
+    margin: 10px 0; padding: 10px 14px; border-radius: 10px;
+    background: #000; border-left: 6px solid var(--accent);
+    font-size: 0.95rem; font-weight: 600; letter-spacing: 1.5px;
+    color: #fff; min-height: 42px; display: flex; align-items: center;
+    transition: border-color .2s, background .2s;
+  }
+  .status.win  { border-color: var(--lcars-gold);  color: var(--lcars-gold); }
+  .status.lose { border-color: var(--lcars-mars);  color: var(--lcars-tomato); }
+  .status.draw { border-color: var(--lcars-violet);color: var(--lcars-violet); }
+
+  /* Scoreboard */
+  .scoreboard { display: flex; gap: 8px; margin: 6px 0 14px; }
+  .score {
+    flex: 1; text-align: center; padding: 8px 4px;
+    border-radius: 10px; background: #000;
+    border: 2px solid #222a3a; transition: border-color .2s, box-shadow .2s;
+  }
+  .score.active { box-shadow: 0 0 0 1px var(--accent), 0 0 16px -4px var(--accent); }
+  .score .label { font-size: 0.62rem; letter-spacing: 1.5px; color: var(--lcars-sky); }
+  .score .value { font-size: 1.7rem; font-weight: 700; }
+  .score.you  .value { color: var(--player); }
+  .score.you.active  { border-color: var(--player); }
+  .score.draw .value { color: var(--lcars-violet); }
+  .score.cpu  .value { color: var(--cpu); }
+  .score.cpu.active  { border-color: var(--cpu); }
+
+  /* Tactical grid */
+  .board {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    aspect-ratio: 1/1; padding: 8px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 23px, rgba(85,102,255,.08) 23px 24px),
+      repeating-linear-gradient(90deg, transparent 0 23px, rgba(85,102,255,.08) 23px 24px),
+      #05070d;
+    border: 2px solid var(--grid); border-radius: 12px;
+  }
+  .cell {
+    background: #0a0e18; border: 1px solid #1d2740;
+    border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; transition: background .12s, box-shadow .12s, transform .06s;
+  }
+  .cell:hover:not(:disabled) { background: #11192c; box-shadow: inset 0 0 0 1px var(--accent); }
+  .cell:active:not(:disabled) { transform: scale(0.96); }
+  .cell:disabled { cursor: default; }
+  .cell svg { width: 64%; height: 64%; animation: pop .22s ease-out; }
+  .cell.win { box-shadow: inset 0 0 0 2px var(--lcars-gold), 0 0 18px -2px var(--lcars-gold); background: #14110a; }
+  @keyframes pop { from { transform: scale(.2) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .coord { position: absolute; top: 3px; left: 5px; font-size: 0.5rem; color: #2f3a55; letter-spacing: 1px; }
+
+  /* Bottom bar */
+  .botbar { grid-area: botbar; display: grid; grid-template-columns: 132px 1fr; gap: 10px; }
+  .elbow-bl {
+    height: 36px; background: var(--lcars-orange);
+    border-radius: 0 0 0 36px; position: relative;
+  }
+  .elbow-bl::after {
+    content: ""; position: absolute; right: 0; top: 0;
+    width: 60%; height: 16px; background: var(--lcars-bg); border-radius: 0 18px 0 0;
+  }
+  .bot-actions { display: flex; gap: 8px; align-items: stretch; }
+  .lcars-btn {
+    flex: 1; border: none; cursor: pointer; color: #000; font-weight: 700;
+    font-family: inherit; text-transform: uppercase; letter-spacing: 2px; font-size: 0.85rem;
+    border-radius: 18px; padding: 0 18px;
+    transition: filter .12s, transform .08s;
+  }
+  .lcars-btn:hover { filter: brightness(1.15); }
+  .lcars-btn:active { transform: scale(0.97); }
+  .lcars-btn.go    { background: var(--lcars-gold); }
+  .lcars-btn.warn  { background: var(--lcars-butter); }
+  .lcars-btn.stop  { background: var(--lcars-red); color: #fff; }
+
+  /* Red alert */
+  body.red-alert::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    box-shadow: inset 0 0 140px 30px var(--lcars-mars);
+    animation: alert 0.7s ease-in-out infinite alternate;
+  }
+  @keyframes alert { from { opacity: .15; } to { opacity: .65; } }
+
+  .hidden { display: none !important; }
+
+  /* ───────────────────────── Settings modal ───────────────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.82);
+    display: flex; align-items: center; justify-content: center; padding: 18px; z-index: 100;
+  }
+  .modal {
+    width: 100%; max-width: 460px; max-height: 92vh; overflow-y: auto;
+    background: var(--lcars-panel); border-left: 6px solid var(--lcars-orange);
+    border-radius: 0 18px 18px 0; padding: 20px 22px;
+  }
+  .modal h2 { color: var(--lcars-gold); font-size: 1.2rem; letter-spacing: 2px; margin-bottom: 14px; }
+  .field { margin-bottom: 13px; }
+  .field > label { display: block; font-size: 0.68rem; color: var(--lcars-sky); margin-bottom: 5px; letter-spacing: 1.5px; }
+  .field input[type=text], .field select {
+    width: 100%; padding: 9px 11px; border-radius: 8px;
+    background: #05070d; border: 1px solid var(--lcars-blue); color: #fff;
+    font-family: inherit; text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;
+  }
+  .field input[type=color] { width: 100%; height: 38px; border: none; border-radius: 8px; background: #05070d; cursor: pointer; }
+  .field input[type=range] { width: 100%; accent-color: var(--lcars-orange); }
+  .row { display: flex; gap: 10px; } .row > .field { flex: 1; }
+  .toggle { display: flex; align-items: center; gap: 10px; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--lcars-orange); }
+  .toggle label { font-size: 0.75rem; color: #fff; letter-spacing: 1px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .save-note { font-size: 0.7rem; color: var(--lcars-sky); text-align: center; margin-top: 10px; min-height: 14px; letter-spacing: 1px; }
+  .err { color: var(--lcars-tomato); }
+
+  @media (max-width: 560px) {
+    .frame { grid-template-columns: 80px 1fr; }
+    .topbar { grid-template-columns: 80px 1fr; }
+    .topbar-tag { display: none; }
+    .botbar { grid-template-columns: 80px 1fr; }
+    .elbow-tl { width: 80px; }
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="elbow-tl"></div>
+      <div class="topbar-pill" id="topPill">LCARS · TACTICAL GRID 47-A</div>
+      <div class="topbar-tag">STARFLEET</div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="side-block tall"><span>STARDATE</span><span class="big" id="stardate">—</span></div>
+      <div class="side-block" id="sideOpp"><span>ADVERSARY</span><span id="sideOppName">BORG</span></div>
+      <div class="side-block" id="sideMode"><span>PROTOCOL</span><span id="sideMode2">NO-WIN</span></div>
+      <button class="side-block side-btn" id="gearBtn"><span>SYSTEM</span><span class="big">⚙ CONFIG</span></button>
+      <div class="side-fill"></div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <div id="game">
+        <div class="titleline">
+          <h1>KOBAYASHI MARU</h1>
+          <span class="sub" id="subtitle">TACTICAL SIMULATION</span>
+        </div>
+
+        <div class="readout">
+          <div class="chip">CMDR: <b id="readName">CADET</b></div>
+          <div class="chip">SECTOR: <b>3×3 GRID</b></div>
+          <div class="chip">THREAT: <b id="readThreat">LETHAL</b></div>
+        </div>
+
+        <div class="status" id="status">INITIALIZING…</div>
+
+        <div class="scoreboard">
+          <div class="score you"  id="scoreYou"><div class="label" id="youLabel">STARFLEET</div><div class="value" id="winsYou">0</div></div>
+          <div class="score draw" id="scoreDraw"><div class="label">STALEMATE</div><div class="value" id="winsDraw">0</div></div>
+          <div class="score cpu"  id="scoreCpu"><div class="label" id="cpuLabel">BORG</div><div class="value" id="winsCpu">0</div></div>
+        </div>
+
+        <div class="board" id="board"></div>
+      </div>
+
+      <!-- End-of-program log -->
+      <div id="quitView" class="hidden" style="padding:18px 4px;">
+        <div class="titleline"><h1>PROGRAM ENDED</h1></div>
+        <p style="color:var(--lcars-sky); font-size:0.8rem; line-height:1.7; margin:14px 0; letter-spacing:1px;">
+          SIMULATION TERMINATED BY COMMAND.<br>
+          FINAL MISSION LOG —<br>
+          STARFLEET VICTORIES: <b style="color:var(--player)" id="finalYou">0</b> ·
+          STALEMATES: <b style="color:var(--lcars-violet)" id="finalDraw">0</b> ·
+          ENEMY VICTORIES: <b style="color:var(--cpu)" id="finalCpu">0</b>
+        </p>
+        <p style="color:var(--lcars-gold); font-size:0.8rem; letter-spacing:1px; margin-bottom:16px;" id="quitVerdict"></p>
+        <button class="lcars-btn go" id="restartBtn" style="height:42px;max-width:240px;">RE-ENGAGE SIMULATION</button>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="botbar">
+      <div class="elbow-bl"></div>
+      <div class="bot-actions" style="height:42px;">
+        <button class="lcars-btn go"   id="newBtn">NEW SIMULATION</button>
+        <button class="lcars-btn stop" id="quitBtn">END PROGRAM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="overlay" class="overlay hidden">
+    <div class="modal">
+      <h2>⚙ SIMULATION PARAMETERS</h2>
+      <div class="field">
+        <label>Commanding Officer</label>
+        <input type="text" id="cfgName" maxlength="24" placeholder="CADET">
+      </div>
+      <div class="field">
+        <label>Adversary Faction</label>
+        <select id="cfgOpponent">
+          <option value="borg">The Borg Collective</option>
+          <option value="klingon">Klingon Empire</option>
+          <option value="romulan">Romulan Star Empire</option>
+          <option value="computer">Starfleet Computer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tactical Protocol (Difficulty)</label>
+        <select id="cfgDifficulty">
+          <option value="perfect">Kobayashi Maru — No-Win Scenario</option>
+          <option value="hard">Kirk Subroutine — Hard (~20% openings)</option>
+          <option value="medium">Kirk Subroutine — Medium (~50%)</option>
+          <option value="easy">Holodeck Safety On — Easy (random)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>First Strike</label>
+        <select id="cfgFirstMove">
+          <option value="alternate">Alternate each engagement</option>
+          <option value="you">Starfleet always fires first</option>
+          <option value="computer">Enemy always fires first</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Enemy Response Delay: <span id="delayVal">480</span> MS</label>
+        <input type="range" id="cfgDelay" min="0" max="2000" step="20">
+      </div>
+      <div class="row">
+        <div class="field"><label>Starfleet Color</label><input type="color" id="cfgPlayerColor"></div>
+        <div class="field"><label>Accent (LCARS)</label><input type="color" id="cfgAccent"></div>
+      </div>
+      <div class="field toggle"><input type="checkbox" id="cfgRedAlert"><label>Red Alert klaxon when defeat is imminent</label></div>
+      <div class="field toggle"><input type="checkbox" id="cfgSound"><label>LCARS audio cues</label></div>
+      <div class="modal-actions">
+        <button class="lcars-btn go"   id="saveBtn"  style="height:40px;">ENGAGE</button>
+        <button class="lcars-btn warn" id="resetBtn" style="height:40px;">DEFAULTS</button>
+        <button class="lcars-btn stop" id="closeBtn" style="height:40px;">CANCEL</button>
+      </div>
+      <div class="save-note" id="saveNote"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  // ─────────────────────────── Faction data ───────────────────────────
+  // Each faction supplies a colour, a scoreboard label, an SVG emblem and
+  // a victory taunt. Emblems are hand-drawn so no image files are needed.
+  const FACTIONS = {
+    borg: {
+      name: 'BORG', color: '#7CFC4D', threat: 'ASSIMILATION',
+      taunt: 'RESISTANCE IS FUTILE. YOU WILL BE ASSIMILATED.',
+      emblem: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round">
+        <rect x="22" y="22" width="56" height="56"/>
+        <path d="M22 40 H78 M22 60 H78 M40 22 V78 M60 22 V78"/>
+        <circle cx="50" cy="50" r="9" fill="currentColor" stroke="none"/></svg>`
+    },
+    klingon: {
+      name: 'KLINGON', color: '#ff4d4d', threat: 'WARFARE',
+      taunt: 'TODAY IS A GOOD DAY FOR YOU TO DIE. QAPLA’!',
+      emblem: `<svg viewBox="0 0 100 100" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round">
+        <path d="M50 8 C58 30 78 30 92 22 C80 40 80 48 92 60 C72 54 58 60 50 92 C42 60 28 54 8 60 C20 48 20 40 8 22 C22 30 42 30 50 8 Z"/>
+        <circle cx="50" cy="50" r="7" fill="#000"/></svg>`
+    },
+    romulan: {
+      name: 'ROMULAN', color: '#4dff9e', threat: 'SUBTERFUGE',
+      taunt: 'THE TAL SHIAR THANKS YOU FOR YOUR SERVICE.',
+      emblem: `<svg viewBox="0 0 100 100" fill="currentColor" stroke="none">
+        <path d="M50 26 L60 44 L50 38 L40 44 Z"/>
+        <path d="M50 30 C18 30 10 64 6 76 C24 60 38 60 50 68 C62 60 76 60 94 76 C90 64 82 30 50 30 Z" opacity="0.92"/></svg>`
+    },
+    computer: {
+      name: 'COMPUTER', color: '#ff9966', threat: 'PROBABILITY',
+      taunt: 'OPTIMAL OUTCOME ACHIEVED. THE COMPUTER IS UNDEFEATED.',
+      emblem: `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round">
+        <circle cx="50" cy="50" r="30"/>
+        <path d="M50 12 V30 M50 70 V88 M12 50 H30 M70 50 H88"/>
+        <circle cx="50" cy="50" r="6" fill="currentColor" stroke="none"/></svg>`
+    }
+  };
+  // Starfleet (the human player) emblem — the classic delta arrowhead.
+  const STARFLEET_EMBLEM = `<svg viewBox="0 0 100 100" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+    <path d="M50 8 C58 40 72 64 86 86 C70 78 60 78 50 86 C40 78 30 78 14 86 C28 64 42 40 50 8 Z"/>
+    <path d="M50 30 C54 48 60 62 68 76 C60 71 54 71 50 75 C46 71 40 71 32 76 C40 62 46 48 50 30 Z" fill="#000"/></svg>`;
+
+  // ─────────────────────────── State ───────────────────────────
+  let cfg = null;
+  let board = Array(9).fill('');
+  let cells = [];
+  let gameOver = false, busy = false, alerting = false;
+  let humanStarts = true;
+  let current = null;
+  let HUMAN = 'P', CPU = 'E';     // internal tokens (not displayed)
+  let faction = FACTIONS.borg;
+
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), statusEl = $('status');
+  const COORDS = ['A1','A2','A3','B1','B2','B3','C1','C2','C3'];
+  const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  // ─────────────────────────── Audio (Web Audio API) ───────────────────────────
+  let actx = null;
+  function ac() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} } return actx; }
+  function beep(freq, dur, type = 'square', vol = 0.06, when = 0) {
+    if (!cfg || !cfg.sound) return;
+    const c = ac(); if (!c) return;
+    const t = c.currentTime + when;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sBlip    = () => beep(660, 0.08, 'square', 0.05);             // UI tap
+  const sPlayer  = () => { beep(880, 0.07, 'square', 0.05); beep(1320, 0.09, 'square', 0.04, 0.05); };
+  const sCpu     = () => { beep(300, 0.10, 'sawtooth', 0.05); beep(220, 0.12, 'sawtooth', 0.04, 0.06); };
+  const sWin     = () => { [523,659,784,1047].forEach((f,i) => beep(f, 0.18, 'square', 0.06, i*0.10)); };
+  const sLose    = () => { [392,330,262,196].forEach((f,i) => beep(f, 0.22, 'sawtooth', 0.06, i*0.12)); };
+  const sDraw    = () => { beep(440, 0.18, 'triangle', 0.05); beep(440, 0.18, 'triangle', 0.04, 0.22); };
+  function klaxon() {
+    if (!cfg || !cfg.sound) return;
+    for (let i = 0; i < 3; i++) { beep(740, 0.18, 'sawtooth', 0.05, i*0.42); beep(560, 0.18, 'sawtooth', 0.05, i*0.42 + 0.20); }
+  }
+
+  // ─────────────────────────── API ───────────────────────────
+  async function api(method, url, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(url, opts);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    return r.json();
+  }
+
+  // ─────────────────────────── Stardate ───────────────────────────
+  // Fan formula: TNG premiered 1987 at stardate ~41000; +1000 per year.
+  function stardate() {
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 0);
+    const dayOfYear = (now - yearStart) / 86400000;
+    const base = 41000 + (now.getFullYear() - 1987) * 1000;
+    const frac = (dayOfYear / 365.25) * 1000;
+    return (base + frac).toFixed(1);
+  }
+
+  // ─────────────────────────── Config → UI ───────────────────────────
+  function applyConfig(c) {
+    cfg = c;
+    faction = FACTIONS[c.opponent] || FACTIONS.borg;
+    const root = document.documentElement.style;
+    root.setProperty('--player', c.theme.playerColor);
+    root.setProperty('--accent', c.theme.accent);
+    root.setProperty('--cpu', faction.color);
+
+    $('readName').textContent  = c.playerName || 'CADET';
+    $('cpuLabel').textContent  = faction.name;
+    $('sideOppName').textContent = faction.name;
+    $('readThreat').textContent = faction.threat;
+
+    const modeLabel = { perfect: 'NO-WIN', hard: 'KIRK·HARD', medium: 'KIRK·MED', easy: 'SAFETY ON' }[c.difficulty];
+    $('sideMode2').textContent = modeLabel;
+    const diffPhrase = {
+      perfect: 'a true no-win scenario',
+      hard: 'a reprogrammed sim — slips occasionally',
+      medium: 'a reprogrammed sim — slips often',
+      easy: 'holodeck safeties engaged'
+    }[c.difficulty];
+    $('subtitle').textContent = `STARFLEET vs ${faction.name} · ${diffPhrase}`.toUpperCase();
+    $('stardate').textContent = stardate();
+  }
+
+  // ─────────────────────────── Board ───────────────────────────
+  function buildBoard() {
+    boardEl.innerHTML = ''; cells = [];
+    for (let i = 0; i < 9; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'cell';
+      btn.innerHTML = `<span class="coord">${COORDS[i]}</span>`;
+      btn.addEventListener('click', () => onCellClick(i));
+      boardEl.appendChild(btn); cells.push(btn);
+    }
+  }
+
+  function newGame() {
+    clearAlert();
+    board = Array(9).fill('');
+    gameOver = false; busy = false;
+    cells.forEach((c, i) => { c.className = 'cell'; c.innerHTML = `<span class="coord">${COORDS[i]}</span>`; c.disabled = false; });
+
+    if (cfg.firstMove === 'you')           current = HUMAN;
+    else if (cfg.firstMove === 'computer') current = CPU;
+    else { current = humanStarts ? HUMAN : CPU; humanStarts = !humanStarts; }
+
+    if (current === HUMAN) {
+      setStatus('STARFLEET HAS THE BRIDGE. SELECT A SECTOR.', '');
+    } else {
+      setStatus(`${faction.name} FORCES MOVING FIRST…`, '');
+      busy = true; lockBoard(true);
+      setTimeout(cpuMove, Math.max(300, cfg.cpuDelayMs));
+    }
+    updateActiveScore();
+  }
+
+  function onCellClick(i) {
+    if (gameOver || busy || board[i] !== '' || current !== HUMAN) return;
+    ac();                                  // unlock audio on first interaction
+    place(i, HUMAN); sPlayer();
+    if (finishIfOver()) return;
+    current = CPU; busy = true; lockBoard(true);
+    maybeRedAlert();
+    setStatus(`${faction.name} COMPUTING TACTICAL MATRIX…`, '');
+    setTimeout(cpuMove, cfg.cpuDelayMs);
+  }
+
+  function cpuMove() {
+    if (gameOver) return;
+    const move = chooseCpuMove();
+    place(move, CPU); sCpu();
+    if (finishIfOver()) return;
+    current = HUMAN; busy = false; lockBoard(false);
+    clearAlert();
+    setStatus('YOUR MOVE, COMMANDER.', '');
+  }
+
+  function place(i, player) {
+    board[i] = player;
+    const c = cells[i];
+    c.style.color = player === HUMAN ? 'var(--player)' : 'var(--cpu)';
+    c.innerHTML = `<span class="coord">${COORDS[i]}</span>` + (player === HUMAN ? STARFLEET_EMBLEM : faction.emblem);
+    c.disabled = true;
+  }
+
+  function finishIfOver() {
+    const r = evaluate(board);
+    if (r.winner) {
+      gameOver = true; highlight(r.line); lockBoard(true); clearAlert();
+      if (r.winner === HUMAN) {
+        setStatus('⬡ IMPROBABLE — SIMULATION DEFEATED. WELL DONE, COMMANDER.', 'win');
+        sWin(); record('you');
+      } else {
+        setStatus('✖ ' + faction.taunt, 'lose');
+        sLose(); record('cpu');
+      }
+      updateActiveScore(); return true;
+    }
+    if (board.every(v => v !== '')) {
+      gameOver = true; lockBoard(true); clearAlert();
+      const msg = cfg.difficulty === 'perfect'
+        ? 'TACTICAL STALEMATE — THE NO-WIN SCENARIO HOLDS.'
+        : 'STALEMATE. NO VICTOR THIS ENGAGEMENT.';
+      setStatus('◎ ' + msg, 'draw'); sDraw(); record('draw');
+      updateActiveScore(); return true;
+    }
+    return false;
+  }
+
+  async function record(outcome) {
+    try { renderScores(await api('POST', '/api/scores/record', { outcome })); } catch {}
+  }
+
+  // ─────────────────────────── Red alert ───────────────────────────
+  // If the enemy now has an immediate winning move, raise the alert.
+  function maybeRedAlert() {
+    if (!cfg.redAlert) return;
+    if (hasImmediateWin(board, CPU)) {
+      alerting = true; document.body.classList.add('red-alert');
+      klaxon();
+      setStatus('⚠ RED ALERT — ENEMY HAS A WINNING LINE. DEFEND!', 'lose');
+    }
+  }
+  function clearAlert() { if (alerting) { alerting = false; document.body.classList.remove('red-alert'); } }
+  function hasImmediateWin(b, p) {
+    for (let i = 0; i < 9; i++) if (b[i] === '') { b[i] = p; const w = evaluate(b).winner === p; b[i] = ''; if (w) return true; }
+    return false;
+  }
+
+  // ─────────────────────────── UI helpers ───────────────────────────
+  function setStatus(t, cls) { statusEl.textContent = t; statusEl.className = 'status' + (cls ? ' ' + cls : ''); }
+  function lockBoard(locked) { cells.forEach((c, i) => { c.disabled = locked || board[i] !== '' || gameOver; }); }
+  function highlight(line) { if (line) line.forEach(i => cells[i].classList.add('win')); }
+  function renderScores(s) { $('winsYou').textContent = s.you; $('winsDraw').textContent = s.draw; $('winsCpu').textContent = s.cpu; }
+  function updateActiveScore() {
+    $('scoreYou').classList.toggle('active', !gameOver && current === HUMAN);
+    $('scoreCpu').classList.toggle('active', !gameOver && current === CPU);
+  }
+  function evaluate(b) {
+    for (const line of WIN_LINES) { const [a,c,d] = line; if (b[a] && b[a] === b[c] && b[a] === b[d]) return { winner: b[a], line }; }
+    return { winner: null, line: null };
+  }
+
+  // ─────────────────────────── AI (depth-weighted minimax) ───────────────────────────
+  function chooseCpuMove() {
+    const chance = { perfect: 1, hard: 0.8, medium: 0.5, easy: 0 }[cfg.difficulty] ?? 1;
+    return (Math.random() < chance) ? bestMove(board) : randomMove(board);
+  }
+  function randomMove(b) { const free = []; for (let i=0;i<9;i++) if (b[i]==='') free.push(i); return free[Math.floor(Math.random()*free.length)]; }
+  function bestMove(b) {
+    let best = -Infinity, move = -1;
+    for (let i=0;i<9;i++) if (b[i]==='') { b[i]=CPU; const s=minimax(b,0,false); b[i]=''; if (s>best){best=s;move=i;} }
+    return move;
+  }
+  function minimax(b, depth, isMax) {
+    const r = evaluate(b);
+    if (r.winner === CPU)   return 10 - depth;
+    if (r.winner === HUMAN) return depth - 10;
+    if (b.every(v => v !== '')) return 0;
+    if (isMax) { let best=-Infinity; for (let i=0;i<9;i++) if (b[i]===''){b[i]=CPU;best=Math.max(best,minimax(b,depth+1,false));b[i]='';} return best; }
+    else       { let best= Infinity; for (let i=0;i<9;i++) if (b[i]===''){b[i]=HUMAN;best=Math.min(best,minimax(b,depth+1,true));b[i]='';} return best; }
+  }
+
+  // ─────────────────────────── Quit / restart ───────────────────────────
+  const gameView = $('game'), quitView = $('quitView');
+  $('newBtn').addEventListener('click', () => { sBlip(); newGame(); });
+  $('quitBtn').addEventListener('click', async () => {
+    sBlip(); clearAlert();
+    const s = await api('GET', '/api/scores').catch(() => ({ you:0, draw:0, cpu:0 }));
+    $('finalYou').textContent = s.you; $('finalDraw').textContent = s.draw; $('finalCpu').textContent = s.cpu;
+    const verdict = s.you > s.cpu ? 'AGAINST ALL ODDS, STARFLEET PREVAILS. THE ADMIRALTY IS IMPRESSED.'
+                  : s.cpu > s.you ? 'THE NO-WIN SCENARIO LIVES UP TO ITS NAME. DISMISSED, CADET.'
+                  : 'A BALANCED RECORD. THE KOBAYASHI MARU REMAINS UNSOLVED.';
+    $('quitVerdict').textContent = verdict;
+    gameView.classList.add('hidden'); quitView.classList.remove('hidden');
+  });
+  $('restartBtn').addEventListener('click', async () => {
+    sBlip();
+    await api('DELETE', '/api/scores').then(renderScores).catch(() => {});
+    humanStarts = true;
+    quitView.classList.add('hidden'); gameView.classList.remove('hidden');
+    newGame();
+  });
+
+  // ─────────────────────────── Settings ───────────────────────────
+  const overlay = $('overlay');
+  function openSettings() {
+    $('cfgName').value         = cfg.playerName;
+    $('cfgOpponent').value     = cfg.opponent;
+    $('cfgDifficulty').value   = cfg.difficulty;
+    $('cfgFirstMove').value    = cfg.firstMove;
+    $('cfgDelay').value        = cfg.cpuDelayMs;
+    $('delayVal').textContent  = cfg.cpuDelayMs;
+    $('cfgPlayerColor').value  = cfg.theme.playerColor;
+    $('cfgAccent').value       = cfg.theme.accent;
+    $('cfgRedAlert').checked   = cfg.redAlert;
+    $('cfgSound').checked      = cfg.sound;
+    $('saveNote').textContent  = '';
+    overlay.classList.remove('hidden');
+  }
+  $('gearBtn').addEventListener('click', () => { sBlip(); openSettings(); });
+  $('closeBtn').addEventListener('click', () => { sBlip(); overlay.classList.add('hidden'); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+  $('cfgDelay').addEventListener('input', e => $('delayVal').textContent = e.target.value);
+
+  $('saveBtn').addEventListener('click', async () => {
+    const note = $('saveNote'); note.className = 'save-note'; note.textContent = 'SAVING…';
+    const payload = {
+      playerName:  $('cfgName').value,
+      opponent:    $('cfgOpponent').value,
+      difficulty:  $('cfgDifficulty').value,
+      firstMove:   $('cfgFirstMove').value,
+      cpuDelayMs:  Number($('cfgDelay').value),
+      redAlert:    $('cfgRedAlert').checked,
+      sound:       $('cfgSound').checked,
+      theme: { playerColor: $('cfgPlayerColor').value, cpuColor: cfg.theme.cpuColor, accent: $('cfgAccent').value }
+    };
+    try {
+      applyConfig(await api('PUT', '/api/config', payload));
+      overlay.classList.add('hidden');
+      sPlayer(); humanStarts = true; newGame();
+    } catch (e) { note.className = 'save-note err'; note.textContent = 'ERROR: ' + e.message; }
+  });
+  $('resetBtn').addEventListener('click', async () => {
+    try { applyConfig(await api('DELETE', '/api/config')); openSettings(); $('saveNote').textContent = 'RESTORED TO DEFAULTS.'; }
+    catch (e) { $('saveNote').className = 'save-note err'; $('saveNote').textContent = 'ERROR: ' + e.message; }
+  });
+
+  // ─────────────────────────── Boot ───────────────────────────
+  (async function init() {
+    buildBoard();
+    try {
+      const [c, s] = await Promise.all([ api('GET', '/api/config'), api('GET', '/api/scores') ]);
+      applyConfig(c); renderScores(s);
+    } catch {
+      applyConfig({
+        playerName: 'CADET', playerSymbol: '▲', cpuSymbol: '■', opponent: 'borg',
+        firstMove: 'alternate', difficulty: 'perfect', cpuDelayMs: 480, redAlert: true, sound: true,
+        theme: { playerColor: '#ffcc66', cpuColor: '#66cc66', accent: '#ff9900' }
+      });
+      setStatus('⚠ COMPUTER CORE OFFLINE — RUNNING LOCAL CACHE.', 'lose');
+    }
+    newGame();
+    // keep the stardate ticking
+    setInterval(() => { $('stardate').textContent = stardate(); }, 60000);
+  })();
+})();
+</script>
+</body>
+</html>
