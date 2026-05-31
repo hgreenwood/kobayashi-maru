@@ -8,9 +8,11 @@ COPY package.json ./
 COPY server.js ./
 COPY public ./public
 
-# Persist config/scores here; mount a volume at /data in production.
+# Persist config/scores here. In production, mount a persistent volume at
+# /data (e.g. a Railway Volume or Render disk) so data survives restarts.
+# NOTE: no Docker `VOLUME` instruction — Railway rejects it and manages
+# persistence itself via its Volumes feature mounted at this same path.
 ENV DATA_DIR=/data
-VOLUME /data
 
 # Hosts inject PORT; default to 3000 for local `docker run`.
 ENV PORT=3000
